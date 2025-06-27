@@ -56,3 +56,17 @@ if not nearby.empty:
     ]].sort_values('log10_SN1', ascending=False))
 else:
     st.info("No nearby points found within tolerance.")
+
+st.subheader("3D Parameter Space Visualization")
+
+fig = px.scatter_3d(
+    df,
+    x='moles_surf.proteins',
+    y='capture',
+    z='probe',
+    color='log10_SN1',
+    symbol='Affinity',
+    opacity=0.7
+)
+
+st.plotly_chart(fig)
