@@ -59,32 +59,39 @@ else:
 
 st.subheader("3D Parameter Space Visualization")
 
-fig = px.scatter_3d(
-    df,
-    x='moles_surf.proteins',
-    y='capture',
-    z='probe',
-    color='log10_SN1',
-    symbol='Affinity',
-    opacity=0.7
-)
-# Make symbols clearer
-fig.update_traces(marker=dict(size=6, line=dict(width=1, color='black')))
+affinity_levels = ['low', 'medium', 'high']
 
-fig.update_layout(
-    legend=dict(
-        title="Affinity",
-        x=0.0,
-        y=1.0,
-        font=dict(size=12)
-    ),
-    coloraxis_colorbar=dict(
-        title=dict(text="log10(S/N)", font=dict(size=14)),
-        tickfont=dict(size=12),
-        x=1.05,
-        len=0.75,
-        thickness=15
-    ),
-    margin=dict(l=0, r=0, b=0, t=30)
-)
-st.plotly_chart(fig)
+for aff in affinity_levels:
+    st.write(f"### Affinity: {aff.capitalize()}")  # Smaller subheader per plot
+    
+    df_sub = df[df['Affinity'] == aff]
+    
+    fig = px.scatter_3d(
+        df_sub,
+        x='moles_surf.proteins',
+        y='capture',
+        z='probe',
+        color='log10_SN1',
+        opacity=0.7,
+        color_continuous_scale='Viridis',
+        labels={
+            'moles_surf.proteins': 'Moles Surface Protein',
+            'capture': 'Capture (µg/ml)',
+            'probe': 'Probe (µg/ml)',
+            'log10_SN1': 'log10(S/N)'
+        }
+    )
+    
+    fig.update_layout(
+        coloraxis_colorbar=dict(
+            title=dict(text="log10(S/N)", font=dict(size=14)),
+            tickfont=dict(size=12),
+            x=1.05,
+            len=0.75,
+            thickness=15
+        ),
+        margin=dict(l=0, r=0, b=0, t=30),
+        showlegend=False
+    )
+    
+    st.plotly_chart(fig)
