@@ -20,7 +20,7 @@ df['Affinity_kD'] = df['Affinity'].map(affinity_map)
 # Sidebar sliders
 st.sidebar.header("Select Parameters")
 
-moles = st.sidebar.select_slider("Moles of surface protein", options=sorted(df['moles_surf.proteins'].unique()))
+cellnbr = st.sidebar.select_slider("log10 (cell nbr)", options=sorted(df['log10_cell.nbr'].unique()))
 capture = st.sidebar.select_slider("Capture concentration (µg/ml)", options=sorted(df['capture'].unique()))
 probe = st.sidebar.select_slider("Probe concentration (µg/ml)", options=sorted(df['probe'].unique()))
 affinity_label = st.sidebar.select_slider("Affinity (kD)", options=['high', 'medium', 'low'], value='medium')
@@ -28,7 +28,7 @@ kd = affinity_map[affinity_label]
 
 # --- Filter for exact match ---
 exact_match = df[
-    (np.isclose(df['moles_surf.proteins'], moles, rtol=0.01)) &
+    (np.isclose(df['log10_cell.nbr'], cellnbr, rtol=0.01)) &
     (np.isclose(df['capture'], capture, rtol=0.01)) &
     (np.isclose(df['probe'], probe, rtol=0.01)) &
     (np.isclose(df['Affinity_kD'], kd, rtol=0.01))
@@ -44,7 +44,7 @@ else:
 st.subheader("Nearby parameter space (optional)")
 tolerance = 0.3
 nearby = df[
-    (np.isclose(df['moles_surf.proteins'], moles, rtol=tolerance)) &
+    (np.isclose(df['log10_cell.nbr'], cellnbr, rtol=tolerance)) &
     (np.isclose(df['capture'], capture, rtol=tolerance)) &
     (np.isclose(df['probe'], probe, rtol=tolerance)) &
     (np.isclose(df['Affinity_kD'], kd, rtol=tolerance))
@@ -52,7 +52,7 @@ nearby = df[
 
 if not nearby.empty:
     st.dataframe(nearby[[
-        'moles_surf.proteins', 'capture', 'probe', 'Affinity', 'log10_SN1'
+        'log10_cell.nbr', 'capture', 'probe', 'Affinity', 'log10_SN1'
     ]].sort_values('log10_SN1', ascending=False))
 else:
     st.info("No nearby points found within tolerance.")
@@ -74,14 +74,14 @@ for aff in affinity_levels:
     
     fig = px.scatter_3d(
         df_sub,
-        x='moles_surf.proteins',
+        x='log10_cell.nbr',
         y='capture',
         z='probe',
         color='log10_SN1',
         opacity=0.7,
         color_continuous_scale=custom_colorscale,
         labels={
-            'moles_surf.proteins': 'Moles Surface Protein',
+            'log10_cell.nbr': 'log10 (cell nbr)',
             'capture': 'Capture (µg/ml)',
             'probe': 'Probe (µg/ml)',
             'log10_SN1': 'log10(S/N)'
