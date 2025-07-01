@@ -28,10 +28,10 @@ kd = affinity_map[affinity_label]
 
 # --- Filter for exact match ---
 exact_match = df[
-    (np.isclose(df['moles_surf.proteins'], moles, rtol=0.2)) &
-    (np.isclose(df['capture'], capture, rtol=0.2)) &
-    (np.isclose(df['probe'], probe, rtol=0.2)) &
-    (np.isclose(df['Affinity_kD'], kd, rtol=0.2))
+    (np.isclose(df['moles_surf.proteins'], moles, rtol=0.05)) &
+    (np.isclose(df['capture'], capture, rtol=0.05)) &
+    (np.isclose(df['probe'], probe, rtol=0.05)) &
+    (np.isclose(df['Affinity_kD'], kd, rtol=0.05))
 ]
 
 st.subheader("Predicted log10(S/N):")
