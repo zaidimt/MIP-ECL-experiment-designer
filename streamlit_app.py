@@ -67,29 +67,23 @@ df_combined = pd.concat([df, missing_combos], ignore_index=True)
 # --- Streamlit app layout ---
 st.title("CRIS-CROS Experiment Designer")
 
-# Show model evaluation metrics in sidebar
-st.sidebar.subheader("Model Performance: GradientBoostingRegressor")
+# Show model info in sidebar
+st.sidebar.subheader("Model Information")
+st.sidebar.write("Model: Gradient Boosting Regressor")
+st.sidebar.subheader("Model Performance")
 st.sidebar.write(f"Test MSE: {mse:.4f}")
 st.sidebar.write(f"Test R²: {r2:.4f}")
 st.sidebar.info("Higher R² (closer to 1) indicates better prediction accuracy.")
 
-# --- Sidebar Parameter Groupings ---
-with st.sidebar.expander("🔍 Predict from Input Parameters", expanded=True):
-    cellnbr = st.select_slider("log10 (cell nbr)", options=sorted(df_combined['log10_cell.nbr'].unique()))
-    capture = st.select_slider("Capture concentration (\u00b5g/ml)", options=sorted(df_combined['capture'].unique()))
-    probe = st.select_slider("Probe concentration (\u00b5g/ml)", options=sorted(df_combined['probe'].unique()))
-    affinity_label = st.select_slider("Affinity (kD)", options=['high', 'medium', 'low'], value='medium')
-    kd = affinity_map[affinity_label]
+# --- Parameter Selection Section ---
+st.sidebar.header("1. Select Parameters")
+cellnbr = st.sidebar.select_slider("log10 (cell nbr)", options=sorted(df_combined['log10_cell.nbr'].unique()))
+capture = st.sidebar.select_slider("Capture concentration (µg/ml)", options=sorted(df_combined['capture'].unique()))
+probe = st.sidebar.select_slider("Probe concentration (µg/ml)", options=sorted(df_combined['probe'].unique()))
+affinity_label = st.sidebar.select_slider("Affinity (kD)", options=['high', 'medium', 'low'], value='medium')
+kd = affinity_map[affinity_label]
 
-with st.sidebar.expander("🌟 Suggest Parameters for Target S/N", expanded=False):
-    target_sn = st.number_input("Target log10(S/N) value", value=1.0, step=0.1)
-    affinity_levels = ['low', 'medium', 'high']
-    selected_affinity = st.selectbox("Affinity (optional for target SN lookup)", options=["any"] + affinity_levels)
-
-# --- Forward Prediction ---
-st.markdown("---")
-st.subheader("🔍 Forward Prediction from Input Parameters")
-
+st.header("Predict from Selected Parameters")
 exact_match = df_combined[
     (np.isclose(df_combined['log10_cell.nbr'], cellnbr, rtol=0.01)) &
     (np.isclose(df_combined['capture'], capture, rtol=0.01)) &
@@ -99,17 +93,18 @@ exact_match = df_combined[
 
 if not exact_match.empty:
     row = exact_match.iloc[0]
-    sn = row['log10_SN1']
+    sn_log = row['log10_SN1']
+    sn_linear = 10 ** sn_log
     src = row['source']
     if src == 'predicted':
-        st.info(f"Predicted log10(S/N): {sn:.2f} (model-generated)")
+        st.info(f"Predicted log10(S/N): {sn_log:.2f} (linear S/N: {sn_linear:.2f}) (model-generated)")
     else:
-        st.success(f"Measured log10(S/N): {sn:.2f}")
+        st.success(f"Measured log10(S/N): {sn_log:.2f} (linear S/N: {sn_linear:.2f})")
 else:
     st.warning("No match found.")
 
-# --- Nearby parameter space ---
-st.subheader("Nearby Parameter Space (Optional)")
+# Nearby data table
+st.subheader("Nearby Parameter Space (optional)")
 tolerance = 0.3
 nearby = df_combined[
     (np.isclose(df_combined['log10_cell.nbr'], cellnbr, rtol=tolerance)) &
@@ -119,15 +114,20 @@ nearby = df_combined[
 ]
 
 if not nearby.empty:
+    nearby = nearby.copy()
+    nearby['S/N'] = 10 ** nearby['log10_SN1']
     st.dataframe(nearby[[
-        'log10_cell.nbr', 'capture', 'probe', 'Affinity', 'log10_SN1', 'source'
+        'log10_cell.nbr', 'capture', 'probe', 'Affinity', 'log10_SN1', 'S/N', 'source'
     ]].sort_values('log10_SN1', ascending=False))
 else:
     st.info("No nearby points found within tolerance.")
 
-# --- Inverse Lookup ---
-st.markdown("---")
-st.subheader("🌟 Suggest Parameters for Target log10(S/N)")
+# --- Target SN Lookup Section ---
+st.sidebar.header("2. Optimize for Target S/N")
+target_sn_linear = st.sidebar.number_input("Target S/N value", value=10.0, step=0.1, min_value=0.01)
+target_sn = np.log10(target_sn_linear)
+
+selected_affinity = st.sidebar.selectbox("Affinity (optional for target SN lookup)", options=["any", "low", "medium", "high"])
 
 if selected_affinity != "any":
     df_sn = df_combined[df_combined['Affinity'] == selected_affinity]
@@ -137,16 +137,18 @@ else:
 tolerance_sn = 0.1
 matches = df_sn[np.isclose(df_sn['log10_SN1'], target_sn, atol=tolerance_sn)]
 
+st.header("Parameter Combinations Near Target S/N")
 if not matches.empty:
-    st.success(f"Parameter combinations close to target log10(S/N) = {target_sn}:")
+    matches = matches.copy()
+    matches['S/N'] = 10 ** matches['log10_SN1']
+    st.success(f"Parameter combinations close to target S/N = {target_sn_linear:.2f}:")
     st.dataframe(matches[[
-        'log10_cell.nbr', 'capture', 'probe', 'Affinity', 'log10_SN1', 'source'
+        'log10_cell.nbr', 'capture', 'probe', 'Affinity', 'log10_SN1', 'S/N', 'source'
     ]].sort_values('log10_SN1'))
 else:
-    st.warning("No parameter sets found close to that target SN. Try adjusting the tolerance or affinity.")
+    st.warning("No parameter sets found close to that target S/N. Try adjusting the tolerance or affinity.")
 
-# --- 3D visualization ---
-st.markdown("---")
+# --- 3D Visualization ---
 st.subheader("3D Parameter Space Visualization")
 
 custom_colorscale = [
@@ -188,4 +190,5 @@ for aff in ['low', 'medium', 'high']:
     )
 
     st.plotly_chart(fig)
+
 
