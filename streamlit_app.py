@@ -68,5 +68,20 @@ fig = px.scatter_3d(
     symbol='Affinity',
     opacity=0.7
 )
-
+fig.update_layout(
+    legend=dict(
+        title="Affinity",
+        x=0.8,
+        y=0.9,
+        font=dict(size=12)
+    ),
+    coloraxis_colorbar=dict(
+        title=dict(text="log10(S/N)", font=dict(size=14)),
+        tickfont=dict(size=12),
+        x=1.05,
+        len=0.75,
+        thickness=15
+    ),
+    margin=dict(l=0, r=0, b=0, t=30)
+)
 st.plotly_chart(fig)
