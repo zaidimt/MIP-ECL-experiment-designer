@@ -68,11 +68,14 @@ fig = px.scatter_3d(
     symbol='Affinity',
     opacity=0.7
 )
+# Make symbols clearer
+fig.update_traces(marker=dict(size=6, line=dict(width=1, color='black')))
+
 fig.update_layout(
     legend=dict(
         title="Affinity",
-        x=0.8,
-        y=0.9,
+        x=0.0,
+        y=1.0,
         font=dict(size=12)
     ),
     coloraxis_colorbar=dict(
