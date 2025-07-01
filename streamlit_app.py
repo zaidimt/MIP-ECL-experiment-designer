@@ -59,6 +59,12 @@ else:
 
 st.subheader("3D Parameter Space Visualization")
 
+custom_colorscale = [
+   [0.0, '#FFDAB9'],  # Light orange (peach puff)
+   [0.5, '#FF4500'],  # Red-orange
+   [1.0, '#800080']   # Purple
+]
+
 affinity_levels = ['low', 'medium', 'high']
 
 for aff in affinity_levels:
@@ -73,7 +79,7 @@ for aff in affinity_levels:
         z='probe',
         color='log10_SN1',
         opacity=0.7,
-        color_continuous_scale='Viridis',
+        color_continuous_scale=custom_colorscale,
         labels={
             'moles_surf.proteins': 'Moles Surface Protein',
             'capture': 'Capture (µg/ml)',
