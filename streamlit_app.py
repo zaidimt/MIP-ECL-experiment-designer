@@ -16,7 +16,6 @@ df = load_data()
 
 # --- Map Affinity to numeric ---
 affinity_map = {'low': 59, 'medium': 13, 'high': 2}
-affinity_levels = ['low', 'medium', 'high']
 df['Affinity_kD'] = df['Affinity'].map(affinity_map)
 
 # --- Define features and target ---
@@ -62,87 +61,92 @@ missing_combos = param_grid[~param_grid['key'].isin(df['key'])].copy()
 missing_combos['log10_SN1'] = model.predict(missing_combos[features])
 missing_combos['source'] = 'predicted'
 
-# --- Combine data ---
 df['source'] = 'measured'
 df_combined = pd.concat([df, missing_combos], ignore_index=True)
 
-# --- Streamlit layout ---
+# --- Streamlit app layout ---
 st.title("CRIS-CROS Experiment Designer")
 
-# Sidebar: Model info and performance
-st.sidebar.subheader("Prediction Model")
-st.sidebar.write("Model: GradientBoostingRegressor")
+# Show model evaluation metrics in sidebar
+st.sidebar.subheader("Model Performance: GradientBoostingRegressor")
 st.sidebar.write(f"Test MSE: {mse:.4f}")
 st.sidebar.write(f"Test R²: {r2:.4f}")
-st.sidebar.info("Higher R² (closer to 1) = better predictive accuracy.")
+st.sidebar.info("Higher R² (closer to 1) indicates better prediction accuracy.")
 
-# === FORWARD PREDICTION ===
-with st.expander("🔍 Forward Prediction: Get S/N from Parameters", expanded=True):
-    st.sidebar.header("Select Parameters")
-    cellnbr = st.sidebar.select_slider("log10 (cell nbr)", options=sorted(df_combined['log10_cell.nbr'].unique()))
-    capture = st.sidebar.select_slider("Capture concentration (µg/ml)", options=sorted(df_combined['capture'].unique()))
-    probe = st.sidebar.select_slider("Probe concentration (µg/ml)", options=sorted(df_combined['probe'].unique()))
-    affinity_label = st.sidebar.select_slider("Affinity (kD)", options=affinity_levels, value='medium')
+# --- Sidebar Parameter Groupings ---
+with st.sidebar.expander("🔍 Predict from Input Parameters", expanded=True):
+    cellnbr = st.select_slider("log10 (cell nbr)", options=sorted(df_combined['log10_cell.nbr'].unique()))
+    capture = st.select_slider("Capture concentration (\u00b5g/ml)", options=sorted(df_combined['capture'].unique()))
+    probe = st.select_slider("Probe concentration (\u00b5g/ml)", options=sorted(df_combined['probe'].unique()))
+    affinity_label = st.select_slider("Affinity (kD)", options=['high', 'medium', 'low'], value='medium')
     kd = affinity_map[affinity_label]
 
-    exact_match = df_combined[
-        (np.isclose(df_combined['log10_cell.nbr'], cellnbr, rtol=0.01)) &
-        (np.isclose(df_combined['capture'], capture, rtol=0.01)) &
-        (np.isclose(df_combined['probe'], probe, rtol=0.01)) &
-        (np.isclose(df_combined['Affinity_kD'], kd, rtol=0.01))
-    ]
+with st.sidebar.expander("🌟 Suggest Parameters for Target S/N", expanded=False):
+    target_sn = st.number_input("Target log10(S/N) value", value=1.0, step=0.1)
+    affinity_levels = ['low', 'medium', 'high']
+    selected_affinity = st.selectbox("Affinity (optional for target SN lookup)", options=["any"] + affinity_levels)
 
-    st.subheader("Predicted log10(S/N):")
-    if not exact_match.empty:
-        row = exact_match.iloc[0]
-        sn = row['log10_SN1']
-        src = row['source']
-        if src == 'predicted':
-            st.info(f"Predicted log10(S/N): {sn:.2f} (model-generated)")
-        else:
-            st.success(f"Measured log10(S/N): {sn:.2f}")
+# --- Forward Prediction ---
+st.markdown("---")
+st.subheader("🔍 Forward Prediction from Input Parameters")
+
+exact_match = df_combined[
+    (np.isclose(df_combined['log10_cell.nbr'], cellnbr, rtol=0.01)) &
+    (np.isclose(df_combined['capture'], capture, rtol=0.01)) &
+    (np.isclose(df_combined['probe'], probe, rtol=0.01)) &
+    (np.isclose(df_combined['Affinity_kD'], kd, rtol=0.01))
+]
+
+if not exact_match.empty:
+    row = exact_match.iloc[0]
+    sn = row['log10_SN1']
+    src = row['source']
+    if src == 'predicted':
+        st.info(f"Predicted log10(S/N): {sn:.2f} (model-generated)")
     else:
-        st.warning("No match found.")
+        st.success(f"Measured log10(S/N): {sn:.2f}")
+else:
+    st.warning("No match found.")
 
-    st.subheader("Nearby Parameter Space")
-    tolerance = 0.3
-    nearby = df_combined[
-        (np.isclose(df_combined['log10_cell.nbr'], cellnbr, rtol=tolerance)) &
-        (np.isclose(df_combined['capture'], capture, rtol=tolerance)) &
-        (np.isclose(df_combined['probe'], probe, rtol=tolerance)) &
-        (np.isclose(df_combined['Affinity_kD'], kd, rtol=tolerance))
-    ]
+# --- Nearby parameter space ---
+st.subheader("Nearby Parameter Space (Optional)")
+tolerance = 0.3
+nearby = df_combined[
+    (np.isclose(df_combined['log10_cell.nbr'], cellnbr, rtol=tolerance)) &
+    (np.isclose(df_combined['capture'], capture, rtol=tolerance)) &
+    (np.isclose(df_combined['probe'], probe, rtol=tolerance)) &
+    (np.isclose(df_combined['Affinity_kD'], kd, rtol=tolerance))
+]
 
-    if not nearby.empty:
-        st.dataframe(nearby[[
-            'log10_cell.nbr', 'capture', 'probe', 'Affinity', 'log10_SN1', 'source'
-        ]].sort_values('log10_SN1', ascending=False))
-    else:
-        st.info("No nearby points found.")
+if not nearby.empty:
+    st.dataframe(nearby[[
+        'log10_cell.nbr', 'capture', 'probe', 'Affinity', 'log10_SN1', 'source'
+    ]].sort_values('log10_SN1', ascending=False))
+else:
+    st.info("No nearby points found within tolerance.")
 
-# === INVERSE LOOKUP ===
-with st.expander("🌟 Inverse Lookup: Optimize Parameters for Target S/N", expanded=False):
-    target_sn = st.sidebar.number_input("Target log10(S/N)", value=1.0, step=0.1)
-    tolerance_sn = st.sidebar.slider("SN Match Tolerance", min_value=0.01, max_value=0.5, value=0.1, step=0.01)
-    selected_affinity = st.sidebar.selectbox("Affinity (optional)", options=["any"] + affinity_levels)
+# --- Inverse Lookup ---
+st.markdown("---")
+st.subheader("🌟 Suggest Parameters for Target log10(S/N)")
 
-    if selected_affinity != "any":
-        df_sn = df_combined[df_combined['Affinity'] == selected_affinity]
-    else:
-        df_sn = df_combined.copy()
+if selected_affinity != "any":
+    df_sn = df_combined[df_combined['Affinity'] == selected_affinity]
+else:
+    df_sn = df_combined.copy()
 
-    matches = df_sn[np.isclose(df_sn['log10_SN1'], target_sn, atol=tolerance_sn)]
+tolerance_sn = 0.1
+matches = df_sn[np.isclose(df_sn['log10_SN1'], target_sn, atol=tolerance_sn)]
 
-    st.subheader(f"Parameter combinations near log10(S/N) = {target_sn}:")
-    if not matches.empty:
-        st.dataframe(matches[[
-            'log10_cell.nbr', 'capture', 'probe', 'Affinity', 'log10_SN1', 'source'
-        ]].sort_values('log10_SN1'))
-        st.download_button("Download as CSV", matches.to_csv(index=False), file_name="target_sn_matches.csv")
-    else:
-        st.warning("No matches found. Try adjusting tolerance or affinity.")
+if not matches.empty:
+    st.success(f"Parameter combinations close to target log10(S/N) = {target_sn}:")
+    st.dataframe(matches[[
+        'log10_cell.nbr', 'capture', 'probe', 'Affinity', 'log10_SN1', 'source'
+    ]].sort_values('log10_SN1'))
+else:
+    st.warning("No parameter sets found close to that target SN. Try adjusting the tolerance or affinity.")
 
-# --- 3D Visualization ---
+# --- 3D visualization ---
+st.markdown("---")
 st.subheader("3D Parameter Space Visualization")
 
 custom_colorscale = [
@@ -151,7 +155,7 @@ custom_colorscale = [
    [1.0, '#800080']
 ]
 
-for aff in affinity_levels:
+for aff in ['low', 'medium', 'high']:
     st.write(f"### Affinity: {aff.capitalize()}")
     df_sub = df_combined[df_combined['Affinity'] == aff]
 
