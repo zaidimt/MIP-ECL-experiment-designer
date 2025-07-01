@@ -96,7 +96,7 @@ st.info("Using **Gradient Boosting Regressor** for prediction")
 st.write(f"**Test MSE**: {mse:.4f} | **Test R²**: {r2:.4f}")
 
 # --- Main: S/N prediction ---
-with st.expander("🔍 Predicted S/N based on selected parameters", expanded=True):
+with st.expander("## 🔍 Predicted S/N based on selected parameters", expanded=True):
     exact_match = df_combined[
         (np.isclose(df_combined['log10_cell.nbr'], cellnbr, rtol=0.01)) &
         (np.isclose(df_combined['capture'], capture, rtol=0.01)) &
@@ -115,7 +115,7 @@ with st.expander("🔍 Predicted S/N based on selected parameters", expanded=Tru
         st.warning("No exact match found.")
 
     # Nearby parameter space
-    st.markdown("#### 🧭 Nearby parameter space")
+    st.markdown("### 🧭 Nearby parameter space")
     tolerance = 0.3
     nearby = df_combined[
         (np.isclose(df_combined['log10_cell.nbr'], cellnbr, rtol=tolerance)) &
@@ -134,7 +134,7 @@ with st.expander("🔍 Predicted S/N based on selected parameters", expanded=Tru
         st.info("No nearby points found within tolerance.")
 
 # --- Main: Optimization section ---
-with st.expander("📈 Optimized parameters for target S/N", expanded=False):
+with st.expander("## 📈 Optimized parameters for target S/N", expanded=False):
     df_sn = df_combined.copy()
     if selected_affinity != "any":
         df_sn = df_sn[df_sn['Affinity'] == selected_affinity]
@@ -155,7 +155,7 @@ with st.expander("📈 Optimized parameters for target S/N", expanded=False):
         st.warning("No parameter sets found close to that target S/N. Try adjusting inputs or tolerance.")
 
 # --- Main: 3D visualization ---
-with st.expander("🌐 3D Parameter Space Visualization", expanded=False):
+with st.expander("## 🌐 3D Parameter Space Visualization", expanded=False):
     custom_colorscale = [
        [0.0, '#FFDAB9'],
        [0.5, '#FF4500'],
@@ -163,7 +163,7 @@ with st.expander("🌐 3D Parameter Space Visualization", expanded=False):
     ]
 
     for aff in ['low', 'medium', 'high']:
-        st.write(f"#### Affinity: {aff.capitalize()}")
+        st.write(f"### Affinity: {aff.capitalize()}")
         df_sub = df_combined[df_combined['Affinity'] == aff]
 
         fig = px.scatter_3d(
@@ -195,6 +195,7 @@ with st.expander("🌐 3D Parameter Space Visualization", expanded=False):
         )
 
         st.plotly_chart(fig)
+
 
 
 
