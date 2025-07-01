@@ -1,10 +1,10 @@
-# streamlit_app.py
-# streamlit_app.py
 import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
 from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, r2_score
 import itertools
 
 # --- Load data ---
@@ -18,14 +18,26 @@ df = load_data()
 affinity_map = {'low': 59, 'medium': 13, 'high': 2}
 df['Affinity_kD'] = df['Affinity'].map(affinity_map)
 
-# --- Train regression model ---
+# --- Define features and target ---
 features = ['log10_cell.nbr', 'capture', 'probe', 'Affinity_kD']
 X = df[features]
 y = df['log10_SN1']
-model = GradientBoostingRegressor()
-model.fit(X, y)
 
-# --- Generate full parameter grid ---
+# --- Split data for evaluation ---
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# --- Train model ---
+model = GradientBoostingRegressor()
+model.fit(X_train, y_train)
+
+# --- Predict on test set for evaluation ---
+y_pred = model.predict(X_test)
+
+# --- Calculate evaluation metrics ---
+mse = mean_squared_error(y_test, y_pred)
+r2 = r2_score(y_test, y_pred)
+
+# --- Generate full parameter grid for prediction ---
 cellnbr_vals = df['log10_cell.nbr'].unique()
 capture_vals = df['capture'].unique()
 probe_vals = df['probe'].unique()
@@ -36,14 +48,15 @@ param_grid = pd.DataFrame(
     columns=features
 )
 
-# --- Add Affinity label to grid for plotting ---
+# --- Add Affinity label to param_grid for plotting ---
 inverse_affinity_map = {v: k for k, v in affinity_map.items()}
-param_grid['Affinity'] = param_grid['Affinity_KD'] = param_grid['Affinity_KD'] = param_grid['Affinity_KD'] = param_grid['Affinity_kD'].map(inverse_affinity_map)
+param_grid['Affinity'] = param_grid['Affinity_kD'].map(inverse_affinity_map)
 
-# --- Tag missing combinations ---
+# --- Tag existing combos ---
 df['key'] = df[features].astype(str).agg('-'.join, axis=1)
 param_grid['key'] = param_grid[features].astype(str).agg('-'.join, axis=1)
 
+# --- Predict missing combos ---
 missing_combos = param_grid[~param_grid['key'].isin(df['key'])].copy()
 missing_combos['log10_SN1'] = model.predict(missing_combos[features])
 missing_combos['source'] = 'predicted'
@@ -51,9 +64,16 @@ missing_combos['source'] = 'predicted'
 df['source'] = 'measured'
 df_combined = pd.concat([df, missing_combos], ignore_index=True)
 
-# --- App Layout ---
+# --- Streamlit app layout ---
 st.title("CRIS-CROS Experiment Designer")
 
+# Show model evaluation metrics in sidebar
+st.sidebar.subheader("Model Performance")
+st.sidebar.write(f"Test MSE: {mse:.4f}")
+st.sidebar.write(f"Test R²: {r2:.4f}")
+st.sidebar.info("Higher R² (closer to 1) indicates better prediction accuracy.")
+
+# Sidebar filters
 st.sidebar.header("Select Parameters")
 cellnbr = st.sidebar.select_slider("log10 (cell nbr)", options=sorted(df_combined['log10_cell.nbr'].unique()))
 capture = st.sidebar.select_slider("Capture concentration (µg/ml)", options=sorted(df_combined['capture'].unique()))
@@ -61,7 +81,7 @@ probe = st.sidebar.select_slider("Probe concentration (µg/ml)", options=sorted(
 affinity_label = st.sidebar.select_slider("Affinity (kD)", options=['high', 'medium', 'low'], value='medium')
 kd = affinity_map[affinity_label]
 
-# --- Find exact match (use df_combined) ---
+# --- Exact match filtering ---
 exact_match = df_combined[
     (np.isclose(df_combined['log10_cell.nbr'], cellnbr, rtol=0.01)) &
     (np.isclose(df_combined['capture'], capture, rtol=0.01)) &
@@ -98,7 +118,7 @@ if not nearby.empty:
 else:
     st.info("No nearby points found within tolerance.")
 
-# --- 3D Visualization ---
+# --- 3D visualization ---
 st.subheader("3D Parameter Space Visualization")
 
 custom_colorscale = [
