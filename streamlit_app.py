@@ -28,17 +28,17 @@ kd = affinity_map[affinity_label]
 
 # --- Filter for exact match ---
 exact_match = df[
-    (df['moles_surf.proteins']== moles) &
-    (df['capture']==capture) &
-    (df['probe']==probe) &
-    (df['Affinity_kD']== kd)
+    (np.isclose(df['moles_surf.proteins'], moles, rtol=0.01)) &
+    (np.isclose(df['capture'], capture, rtol=0.01)) &
+    (np.isclose(df['probe'], probe, rtol=0.01)) &
+    (np.isclose(df['Affinity_kD'], kd, rtol=0.01))
 ]
 
 st.subheader("Predicted log10(S/N):")
 if not exact_match.empty:
-    st.dataframe(exact_match[['moles_surf.proteins', 'capture', 'probe', 'Affinity', 'log10_SN1']])
+    st.success(f"Closest log10(S/N) ≈ {exact_match['log10_SN1'].values[0]:.2f}")
 else:
-    st.warning("No exact match found. Try adjusting the sliders.")
+    st.warning("No close match found. Try adjusting the sliders.")
 
 # --- Optional: Show nearby parameter space ---
 st.subheader("Nearby parameter space (optional)")
