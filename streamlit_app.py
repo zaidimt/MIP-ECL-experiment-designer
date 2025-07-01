@@ -79,17 +79,15 @@ with st.sidebar.expander("🎯 Predict S/N from known parameters", expanded=True
     affinity_label = st.select_slider("Affinity (kD)", options=['high', 'medium', 'low'], value='medium')
     kd = affinity_map[affinity_label]
 
-with st.sidebar.expander("🎯 Optimize parameters for a target S/N", expanded=False):
+with st.sidebar.expander("📈 Optimize parameters for target S/N", expanded=False):
     target_sn_linear = st.number_input("Target S/N value", value=10.0, step=1.0)
     target_sn = np.log10(target_sn_linear)
 
     affinity_levels = ['low', 'medium', 'high']
-    selected_affinity = st.selectbox("Affinity (optional)", options=["any"] + affinity_levels)
+    selected_affinity = st.selectbox("Affinity", options=["any"] + affinity_levels)
 
-    cellnbr_target = st.selectbox(
-        "Cell number (optional)",
-        options=["any"] + list(sorted(df_combined['log10_cell.nbr'].unique())),
-        index=0
+    cellnbr_target = st.select_slider(
+        "Cell number", options=["any"] + list(sorted(df_combined['log10_cell.nbr'].unique())), value="any"
     )
 
 # --- Main: Model Info ---
@@ -127,8 +125,10 @@ with st.expander("🔍 Predicted S/N based on selected parameters", expanded=Tru
     ]
 
     if not nearby.empty:
+        nearby = nearby.copy()
+        nearby['S/N'] = 10 ** nearby['log10_SN1']
         st.dataframe(nearby[[
-            'log10_cell.nbr', 'capture', 'probe', 'Affinity', 'log10_SN1', 'source'
+            'log10_cell.nbr', 'capture', 'probe', 'Affinity', 'log10_SN1', 'S/N', 'source'
         ]].sort_values('log10_SN1', ascending=False))
     else:
         st.info("No nearby points found within tolerance.")
@@ -145,9 +145,11 @@ with st.expander("📈 Optimized parameters for target S/N", expanded=False):
     matches = df_sn[np.isclose(df_sn['log10_SN1'], target_sn, atol=tolerance_sn)]
 
     if not matches.empty:
+        matches = matches.copy()
+        matches['S/N'] = 10 ** matches['log10_SN1']
         st.success(f"Parameter combinations close to target S/N ≈ {target_sn_linear:.2f}:")
         st.dataframe(matches[[
-            'log10_cell.nbr', 'capture', 'probe', 'Affinity', 'log10_SN1', 'source'
+            'log10_cell.nbr', 'capture', 'probe', 'Affinity', 'log10_SN1', 'S/N', 'source'
         ]].sort_values('log10_SN1'))
     else:
         st.warning("No parameter sets found close to that target S/N. Try adjusting inputs or tolerance.")
@@ -194,23 +196,6 @@ with st.expander("🌐 3D Parameter Space Visualization", expanded=False):
 
         st.plotly_chart(fig)
 
-# --- Main: Model evaluation plot ---
-with st.expander("📊 Measured vs Predicted S/N (Evaluation)", expanded=False):
-    eval_df = pd.DataFrame({
-        'Measured': y_test,
-        'Predicted': y_pred
-    })
-    eval_df['Measured_SN'] = 10 ** eval_df['Measured']
-    eval_df['Predicted_SN'] = 10 ** eval_df['Predicted']
-
-    fig_eval = px.scatter(eval_df, x='Measured_SN', y='Predicted_SN',
-                          labels={'Measured_SN': 'Measured S/N', 'Predicted_SN': 'Predicted S/N'},
-                          title='Measured vs Predicted S/N')
-    fig_eval.add_shape(type='line', x0=eval_df['Measured_SN'].min(), y0=eval_df['Measured_SN'].min(),
-                       x1=eval_df['Measured_SN'].max(), y1=eval_df['Measured_SN'].max(),
-                       line=dict(color='green', dash='dash'))
-
-    st.plotly_chart(fig_eval)
 
 
 
