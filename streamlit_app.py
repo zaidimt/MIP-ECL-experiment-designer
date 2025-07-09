@@ -95,7 +95,7 @@ with st.sidebar.expander("📈 Optimize parameters for target S/N", expanded=Fal
 
     all_cellnrs = sorted(df_combined['protein.copy.nbr'].unique())
     cell_map = {f"{x:.0e}": x for x in all_cellnrs}
-    cellnbr_target_fmt = st.select_slider("Cell number", options=["any"] + list(cell_map.keys()), value="any")
+    cellnbr_target_fmt = st.select_slider("Protein copy nbr", options=["any"] + list(cell_map.keys()), value="any")
     cellnbr_target = cell_map[cellnbr_target_fmt] if cellnbr_target_fmt != "any" else "any"
 
 # --- Main: Model Info ---
