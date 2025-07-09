@@ -23,16 +23,21 @@ features = ['protein.copy.nbr', 'capture', 'probe', 'Affinity_KD']
 X = df[features]
 y = df['log10_SN1']
 
-# --- Split data ---
+# --- Split data for evaluation ---
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# --- Train model ---
 model = GradientBoostingRegressor()
 model.fit(X_train, y_train)
+
+# --- Predict on test set for evaluation ---
 y_pred = model.predict(X_test)
 
+# --- Calculate evaluation metrics ---
 mse = mean_squared_error(y_test, y_pred)
 r2 = r2_score(y_test, y_pred)
 
-# --- Generate parameter grid for prediction ---
+# --- Generate full parameter grid for prediction ---
 cellnbr_vals = df['protein.copy.nbr'].unique()
 capture_vals = df['capture'].unique()
 probe_vals = df['probe'].unique()
@@ -43,12 +48,15 @@ param_grid = pd.DataFrame(
     columns=features
 )
 
+# --- Add Affinity label to param_grid for plotting ---
 inverse_affinity_map = {v: k for k, v in affinity_map.items()}
 param_grid['Affinity'] = param_grid['Affinity_KD'].map(inverse_affinity_map)
 
+# --- Tag existing combos ---
 df['key'] = df[features].astype(str).agg('-'.join, axis=1)
 param_grid['key'] = param_grid[features].astype(str).agg('-'.join, axis=1)
 
+# --- Predict missing combos ---
 missing_combos = param_grid[~param_grid['key'].isin(df['key'])].copy()
 missing_combos['log10_SN1'] = model.predict(missing_combos[features])
 missing_combos['source'] = 'predicted'
@@ -56,18 +64,18 @@ missing_combos['source'] = 'predicted'
 df['source'] = 'measured'
 df_combined = pd.concat([df, missing_combos], ignore_index=True)
 
-# --- FORMAT COLUMN FOR SCIENTIFIC NOTATION ---
+# --- Format protein copy number ---
 df_combined['protein.copy.nbr_fmt'] = df_combined['protein.copy.nbr'].apply(lambda x: f"{x:.0e}")
 
-# --- Streamlit layout ---
+# --- Streamlit app layout ---
 st.set_page_config(page_title="CRIS-CROS Experiment Designer", layout="wide")
+
 st.title("🧪 CRIS-CROS Experiment Designer")
 
-# --- Sidebar Inputs ---
+# --- Sidebar: Inputs ---
 st.sidebar.markdown("## 🔧 Input Panel")
 
 with st.sidebar.expander("🎯 Predict S/N from known parameters", expanded=True):
-    # Format dropdowns with scientific notation
     unique_cells = sorted(df_combined['protein.copy.nbr'].unique())
     cell_format_map = {f"{x:.0e}": x for x in unique_cells}
     cellnbr_fmt = st.select_slider("protein copy nbr", options=list(cell_format_map.keys()))
@@ -90,12 +98,12 @@ with st.sidebar.expander("📈 Optimize parameters for target S/N", expanded=Fal
     cellnbr_target_fmt = st.select_slider("Cell number", options=["any"] + list(cell_map.keys()), value="any")
     cellnbr_target = cell_map[cellnbr_target_fmt] if cellnbr_target_fmt != "any" else "any"
 
-# --- Model Info ---
+# --- Main: Model Info ---
 st.markdown("## 🧠 Model Info")
 st.info("Using **Gradient Boosting Regressor** for prediction")
 st.write(f"**Test MSE**: {mse:.4f} | **Test R²**: {r2:.4f}")
 
-# --- Predicted S/N ---
+# --- Main: S/N prediction ---
 with st.expander("### 🔍 Predicted S/N based on selected parameters", expanded=True):
     exact_match = df_combined[
         (np.isclose(df_combined['protein.copy.nbr'], cellnbr, rtol=0.01)) &
@@ -126,13 +134,15 @@ with st.expander("### 🔍 Predicted S/N based on selected parameters", expanded
     if not nearby.empty:
         nearby = nearby.copy()
         nearby['S/N'] = 10 ** nearby['log10_SN1']
-        st.dataframe(nearby.rename(columns={'protein.copy.nbr_fmt': 'protein.copy.nbr'})[[
-            'protein.copy.nbr_fmt', 'capture', 'probe', 'Affinity', 'log10_SN1', 'S/N', 'source'
-        ]].sort_values('log10_SN1', ascending=False).rename(columns={'protein.copy.nbr_fmt': 'Protein Copy Nbr'}))
+        st.dataframe(
+            nearby[[
+                'protein.copy.nbr_fmt', 'capture', 'probe', 'Affinity', 'log10_SN1', 'S/N', 'source'
+            ]].rename(columns={'protein.copy.nbr_fmt': 'Protein Copy Nbr'}).sort_values('log10_SN1', ascending=False)
+        )
     else:
         st.info("No nearby points found within tolerance.")
 
-# --- Optimization section ---
+# --- Main: Optimization section ---
 with st.expander("### 📈 Optimized parameters for target S/N", expanded=False):
     df_sn = df_combined.copy()
     if selected_affinity != "any":
@@ -147,13 +157,15 @@ with st.expander("### 📈 Optimized parameters for target S/N", expanded=False)
         matches = matches.copy()
         matches['S/N'] = 10 ** matches['log10_SN1']
         st.success(f"Parameter combinations close to target S/N ≈ {target_sn_linear:.2f}:")
-        st.dataframe(matches.rename(columns={'protein.copy.nbr_fmt': 'protein.copy.nbr'})[[
-            'protein.copy.nbr_fmt', 'capture', 'probe', 'Affinity', 'log10_SN1', 'S/N', 'source'
-        ]].sort_values('log10_SN1').rename(columns={'protein.copy.nbr_fmt': 'Protein Copy Nbr'}))
+        st.dataframe(
+            matches[[
+                'protein.copy.nbr_fmt', 'capture', 'probe', 'Affinity', 'log10_SN1', 'S/N', 'source'
+            ]].rename(columns={'protein.copy.nbr_fmt': 'Protein Copy Nbr'}).sort_values('log10_SN1')
+        )
     else:
         st.warning("No parameter sets found close to that target S/N. Try adjusting inputs or tolerance.")
 
-# --- 3D Visualization ---
+# --- Main: 3D visualization ---
 with st.expander("### 🌐 3D Parameter Space Visualization", expanded=False):
     custom_colorscale = [
        [0.0, '#FFDAB9'],
