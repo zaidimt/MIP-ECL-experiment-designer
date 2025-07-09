@@ -19,7 +19,7 @@ affinity_map = {'low': 59, 'medium': 13, 'high': 2}
 df['Affinity_KD'] = df['Affinity'].map(affinity_map)
 
 # --- Define features and target ---
-features = ['log10_cell.nbr', 'capture', 'probe', 'Affinity_KD']
+features = ['protein.copy.nbr', 'capture', 'probe', 'Affinity_KD']
 X = df[features]
 y = df['log10_SN1']
 
@@ -38,7 +38,7 @@ mse = mean_squared_error(y_test, y_pred)
 r2 = r2_score(y_test, y_pred)
 
 # --- Generate full parameter grid for prediction ---
-cellnbr_vals = df['log10_cell.nbr'].unique()
+cellnbr_vals = df['protein.copy.nbr'].unique()
 capture_vals = df['capture'].unique()
 probe_vals = df['probe'].unique()
 affinity_vals = df['Affinity_KD'].unique()
@@ -73,7 +73,7 @@ st.title("🧪 CRIS-CROS Experiment Designer")
 st.sidebar.markdown("## 🔧 Input Panel")
 
 with st.sidebar.expander("🎯 Predict S/N from known parameters", expanded=True):
-    cellnbr = st.select_slider("log10 (cell nbr)", options=sorted(df_combined['log10_cell.nbr'].unique()))
+    cellnbr = st.select_slider("protein copy nbr", options=sorted(df_combined['protein.copy.nbr'].unique()))
     capture = st.select_slider("Capture concentration (µg/ml)", options=sorted(df_combined['capture'].unique()))
     probe = st.select_slider("Probe concentration (µg/ml)", options=sorted(df_combined['probe'].unique()))
     affinity_label = st.select_slider("Affinity (kD)", options=['high', 'medium', 'low'], value='medium')
@@ -87,7 +87,7 @@ with st.sidebar.expander("📈 Optimize parameters for target S/N", expanded=Fal
     selected_affinity = st.selectbox("Affinity", options=["any"] + affinity_levels)
 
     cellnbr_target = st.select_slider(
-        "Cell number", options=["any"] + list(sorted(df_combined['log10_cell.nbr'].unique())), value="any"
+        "Cell number", options=["any"] + list(sorted(df_combined['protein.copy.nbr'].unique())), value="any"
     )
 
 # --- Main: Model Info ---
@@ -98,7 +98,7 @@ st.write(f"**Test MSE**: {mse:.4f} | **Test R²**: {r2:.4f}")
 # --- Main: S/N prediction ---
 with st.expander("### 🔍 Predicted S/N based on selected parameters", expanded=True):
     exact_match = df_combined[
-        (np.isclose(df_combined['log10_cell.nbr'], cellnbr, rtol=0.01)) &
+        (np.isclose(df_combined['protein.copy.nbr'], cellnbr, rtol=0.01)) &
         (np.isclose(df_combined['capture'], capture, rtol=0.01)) &
         (np.isclose(df_combined['probe'], probe, rtol=0.01)) &
         (np.isclose(df_combined['Affinity_KD'], kd, rtol=0.01))
@@ -118,7 +118,7 @@ with st.expander("### 🔍 Predicted S/N based on selected parameters", expanded
     st.markdown("#### 🧭 Nearby parameter space")
     tolerance = 0.3
     nearby = df_combined[
-        (np.isclose(df_combined['log10_cell.nbr'], cellnbr, rtol=tolerance)) &
+        (np.isclose(df_combined['protein.copy.nbr'], cellnbr, rtol=tolerance)) &
         (np.isclose(df_combined['capture'], capture, rtol=tolerance)) &
         (np.isclose(df_combined['probe'], probe, rtol=tolerance)) &
         (np.isclose(df_combined['Affinity_KD'], kd, rtol=tolerance))
@@ -128,7 +128,7 @@ with st.expander("### 🔍 Predicted S/N based on selected parameters", expanded
         nearby = nearby.copy()
         nearby['S/N'] = 10 ** nearby['log10_SN1']
         st.dataframe(nearby[[
-            'log10_cell.nbr', 'capture', 'probe', 'Affinity', 'log10_SN1', 'S/N', 'source'
+            'protein.copy.nbr', 'capture', 'probe', 'Affinity', 'log10_SN1', 'S/N', 'source'
         ]].sort_values('log10_SN1', ascending=False))
     else:
         st.info("No nearby points found within tolerance.")
@@ -139,7 +139,7 @@ with st.expander("### 📈 Optimized parameters for target S/N", expanded=False)
     if selected_affinity != "any":
         df_sn = df_sn[df_sn['Affinity'] == selected_affinity]
     if cellnbr_target != "any":
-        df_sn = df_sn[np.isclose(df_sn['log10_cell.nbr'], float(cellnbr_target), rtol=0.01)]
+        df_sn = df_sn[np.isclose(df_sn['protein.copy.nbr'], float(cellnbr_target), rtol=0.01)]
 
     tolerance_sn = 0.1
     matches = df_sn[np.isclose(df_sn['log10_SN1'], target_sn, atol=tolerance_sn)]
@@ -149,7 +149,7 @@ with st.expander("### 📈 Optimized parameters for target S/N", expanded=False)
         matches['S/N'] = 10 ** matches['log10_SN1']
         st.success(f"Parameter combinations close to target S/N ≈ {target_sn_linear:.2f}:")
         st.dataframe(matches[[
-            'log10_cell.nbr', 'capture', 'probe', 'Affinity', 'log10_SN1', 'S/N', 'source'
+            'protein.copy.nbr', 'capture', 'probe', 'Affinity', 'log10_SN1', 'S/N', 'source'
         ]].sort_values('log10_SN1'))
     else:
         st.warning("No parameter sets found close to that target S/N. Try adjusting inputs or tolerance.")
@@ -168,14 +168,14 @@ with st.expander("### 🌐 3D Parameter Space Visualization", expanded=False):
 
         fig = px.scatter_3d(
             df_sub,
-            x='log10_cell.nbr',
+            x='protein.copy.nbr',
             y='capture',
             z='probe',
             color='log10_SN1',
             opacity=0.7,
             color_continuous_scale=custom_colorscale,
             labels={
-                'log10_cell.nbr': 'log10 (cell nbr)',
+                'protein.copy.nbr': 'protein copy nbr',
                 'capture': 'Capture (µg/ml)',
                 'probe': 'Probe (µg/ml)',
                 'log10_SN1': 'log10(S/N)'
