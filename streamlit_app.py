@@ -164,25 +164,44 @@ with st.expander("### 🌐 3D Parameter Space Visualization", expanded=False):
 
     for aff in ['low', 'medium', 'high']:
         st.write(f"#### Affinity: {aff.capitalize()}")
-        df_sub = df_combined[df_combined['Affinity'] == aff]
+        df_sub = df_combined[df_combined['Affinity'] == aff].copy()
+
+        # Filter out zero or negative values and apply log10 transform
+        df_sub = df_sub[df_sub['protein.copy.nbr'] > 0]
+        df_sub['log10_protein_copy_nbr'] = np.log10(df_sub['protein.copy.nbr'])
+
+        # Generate tick positions and labels for powers of 10
+        tick_vals = np.arange(
+            int(df_sub['log10_protein_copy_nbr'].min()),
+            int(df_sub['log10_protein_copy_nbr'].max()) + 1
+        )
+        tick_texts = [f"10<sup>{i}</sup>" for i in tick_vals]
 
         fig = px.scatter_3d(
             df_sub,
-            x='protein.copy.nbr',
+            x='log10_protein_copy_nbr',
             y='capture',
             z='probe',
             color='log10_SN1',
             opacity=0.7,
             color_continuous_scale=custom_colorscale,
             labels={
-                'protein.copy.nbr': 'protein copy nbr',
+                'log10_protein_copy_nbr': 'Protein Copy Nbr',
                 'capture': 'Capture (µg/ml)',
                 'probe': 'Probe (µg/ml)',
                 'log10_SN1': 'log10(S/N)'
-            }
+            },
+            hover_data=['protein.copy.nbr']  # optional: show original value
         )
 
         fig.update_layout(
+            scene=dict(
+                xaxis=dict(
+                    title='Protein Copy Nbr',
+                    tickvals=tick_vals,
+                    ticktext=tick_texts
+                )
+            ),
             coloraxis_colorbar=dict(
                 title=dict(text="log10(S/N)", font=dict(size=14)),
                 tickfont=dict(size=12),
