@@ -221,18 +221,15 @@ with st.expander("### 🌐 3D Parameter Space Visualization", expanded=False):
             z='probe',
             color='log10_SN1',
             opacity=0.7,
-            symbol='source',   # Different markers for measured vs predicted
-            symbol_map={'measured': 'circle', 'predicted': 'diamond'},
             color_continuous_scale=custom_colorscale,
             labels={
                 'log10_analyte_copy_nbr': 'Analyte Copy Number (log10)',
                 'capture': 'Capture reagent conc. (µg/ml)',
                 'probe': 'Probe reagent concentration (µg/ml)',
                 'log10_SN1': 'log10(S/N)',
-                'analyte.copy.nbr_fmt': 'Analyte Copy Number',
-                'source': 'Data Source'
+                'analyte.copy.nbr_fmt': 'Analyte Copy Number'
             },
-            hover_data=['analyte.copy.nbr_fmt', 'source']
+            hover_data=['analyte.copy.nbr_fmt']
         )
 
         fig.update_layout(
