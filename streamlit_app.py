@@ -7,81 +7,95 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, r2_score
 import itertools
 
-# --- Load data ---
+# ---------- Constants ----------
+AFF_LABELED = {
+    'low':   'low (≤2 kD*)',
+    'medium':'medium (13 kD*)',
+    'high':  'high (≥59 kD*)'
+}
+AFF_KD_FROM_SIMPLE = {'low': 2, 'medium': 13, 'high': 59}
+AFF_KD_FROM_LABELED = {'low (≤2 kD*)': 2, 'medium (13 kD*)': 13, 'high (≥59 kD*)': 59}
+KD_TO_LABELED = {2: 'low (≤2 kD*)', 13: 'medium (13 kD*)', 59: 'high (≥59 kD*)'}
+
+AFFINITY_ORDERED = ['low (≤2 kD*)', 'medium (13 kD*)', 'high (≥59 kD*)']
+
+# ---------- Load data ----------
 @st.cache_data
 def load_data():
     df = pd.read_csv("App_data.csv")
-    
-    # Rename column for consistency
+
+    # Rename once for consistency
     if "protein.copy.nbr" in df.columns:
         df.rename(columns={"protein.copy.nbr": "analyte.copy.nbr"}, inplace=True)
-    
+
+    # Create canonical affinity fields for measured data
+    # Expecting df['Affinity'] to be 'low'|'medium'|'high'
+    if "Affinity" in df.columns:
+        df["Affinity_label"] = df["Affinity"].map(AFF_LABELED)
+        df["Affinity_KD"] = df["Affinity"].map(AFF_KD_FROM_SIMPLE)
+    else:
+        raise ValueError("Missing 'Affinity' column with values low|medium|high.")
+
     # Prettify analyte copy number for hover
-    df["analyte.copy.nbr_fmt"] = df["analyte.copy.nbr"].apply(lambda x: f"{int(x):,}" if x > 0 else "0")
+    df["analyte.copy.nbr_fmt"] = df["analyte.copy.nbr"].apply(
+        lambda x: f"{int(x):,}" if pd.notna(x) and x > 0 else "0"
+    )
     return df
 
 df = load_data()
 
-# --- Map Affinity to numeric (ordered: Low -> Medium -> High) ---
-affinity_map = {
-    'low (≤2 kD*)': 2,
-    'medium (13 kD*)': 13,
-    'high (≥59 kD*)': 59
-}
-df['Affinity_KD'] = df['Affinity'].map({'low': 2, 'medium': 13, 'high': 59})
-
-# --- Define features and target ---
-features = ['protein.copy.nbr', 'capture', 'probe', 'Affinity_KD']
-X = df[features]
+# ---------- Define features & target ----------
+features = ['analyte.copy.nbr', 'capture', 'probe', 'Affinity_KD']
 y = df['log10_SN1']
+X = df[features]
 
-# --- Split data for evaluation ---
+# ---------- Train/test split & model ----------
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-# --- Train model ---
 model = GradientBoostingRegressor()
 model.fit(X_train, y_train)
-
-# --- Predict on test set for evaluation ---
 y_pred = model.predict(X_test)
-
-# --- Calculate evaluation metrics ---
 mse = mean_squared_error(y_test, y_pred)
 r2 = r2_score(y_test, y_pred)
 
-# --- Generate full parameter grid for prediction ---
-analyte_vals = df['protein.copy.nbr'].unique()
+# ---------- Generate full parameter grid for prediction ----------
+analyte_vals = df['analyte.copy.nbr'].unique()
 capture_vals = df['capture'].unique()
 probe_vals = df['probe'].unique()
-affinity_vals = df['Affinity_KD'].unique()
+affinity_vals = df['Affinity_KD'].unique()  # numeric: 2, 13, 59
 
 param_grid = pd.DataFrame(
     list(itertools.product(analyte_vals, capture_vals, probe_vals, affinity_vals)),
     columns=features
 )
+# Add canonical label to the grid
+param_grid['Affinity_label'] = param_grid['Affinity_KD'].map(KD_TO_LABELED)
 
-# --- Add Affinity label to param_grid for plotting ---
-inverse_affinity_map = {2: 'low (≤2 kD*)', 13: 'medium (13 kD*)', 59: 'high (≥59 kD*)'}
-param_grid['Affinity'] = param_grid['Affinity_KD'].map(inverse_affinity_map)
-
-# --- Tag existing combos ---
+# ---------- Mark measured vs predicted, predict missing ----------
 df['key'] = df[features].astype(str).agg('-'.join, axis=1)
 param_grid['key'] = param_grid[features].astype(str).agg('-'.join, axis=1)
 
-# --- Predict missing combos ---
 missing_combos = param_grid[~param_grid['key'].isin(df['key'])].copy()
 missing_combos['log10_SN1'] = model.predict(missing_combos[features])
 missing_combos['source'] = 'predicted'
 
-df['source'] = 'measured'
-df_combined = pd.concat([df, missing_combos], ignore_index=True)
+# measured rows already have Affinity_label; ensure column order/consistency
+df_measured = df.copy()
+df_measured['source'] = 'measured'
+# Guarantee the same columns exist
+for col in ['Affinity_label']:
+    if col not in df_measured.columns:
+        df_measured[col] = df_measured['Affinity_KD'].map(KD_TO_LABELED)
 
-# --- Format analyte copy number ---
-df_combined['analyte.copy.nbr_fmt'] = df_combined['protein.copy.nbr'].apply(lambda x: f"{x:.0e}")
+df_combined = pd.concat([df_measured, missing_combos], ignore_index=True)
 
-# --- Streamlit app layout ---
+# Prettified analyte for combined (if not already)
+if 'analyte.copy.nbr_fmt' not in df_combined.columns:
+    df_combined['analyte.copy.nbr_fmt'] = df_combined['analyte.copy.nbr'].apply(
+        lambda x: f"{int(x):,}" if pd.notna(x) and x > 0 else "0"
+    )
+
+# ---------- App layout ----------
 st.set_page_config(page_title="MIP-ECL Experiment Designer", layout="wide")
-
 st.title("🔬 MIP-ECL EXPERIMENT DESIGNER")
 
 st.markdown(
@@ -98,34 +112,32 @@ st.markdown(
     """
 )
 
-# --- Sidebar: Inputs ---
+# ---------- Sidebar: Inputs ----------
 st.sidebar.markdown("## 🔧 Input Panel")
 
 with st.sidebar.expander("🎯 Predict S/N from known parameters", expanded=True):
-    unique_analytes = sorted(df_combined['protein.copy.nbr'].unique())
+    unique_analytes = sorted(df_combined['analyte.copy.nbr'].unique())
     analyte_format_map = {f"{x:.0e}": x for x in unique_analytes}
     analyte_fmt = st.select_slider("Analyte copy number", options=list(analyte_format_map.keys()))
     analyte = analyte_format_map[analyte_fmt]
 
     capture = st.select_slider("Capture reagent conc. (µg/ml)", options=sorted(df_combined['capture'].unique()))
     probe = st.select_slider("Probe reagent concentration (µg/ml)", options=sorted(df_combined['probe'].unique()))
-    affinity_ordered = ['low (≤2 kD*)', 'medium (13 kD*)', 'high (≥59 kD*)']
-    affinity_label = st.select_slider("Affinity", options=affinity_ordered, value='medium (13 kD*)')
-    kd = affinity_map[affinity_label]
+    affinity_label = st.select_slider("Affinity (kD*)", options=AFFINITY_ORDERED, value='medium (13 kD*)')
+    kd = AFF_KD_FROM_LABELED[affinity_label]
 
 with st.sidebar.expander("📈 Optimize parameters for target S/N", expanded=False):
     target_sn_linear = st.number_input("Target S/N value", value=10.0, step=1.0)
     target_sn = np.log10(target_sn_linear)
 
-    affinity_levels = ['low (≤2 kD*)', 'medium (13 kD*)', 'high (≥59 kD*)']
-    selected_affinity = st.selectbox("Affinity", options=["any"] + affinity_levels)
+    selected_affinity = st.selectbox("Affinity (kD*)", options=["any"] + AFFINITY_ORDERED)
 
-    all_analytes = sorted(df_combined['protein.copy.nbr'].unique())
+    all_analytes = sorted(df_combined['analyte.copy.nbr'].unique())
     analyte_map = {f"{x:.0e}": x for x in all_analytes}
     analyte_target_fmt = st.select_slider("Analyte copy number", options=["any"] + list(analyte_map.keys()), value="any")
     analyte_target = analyte_map[analyte_target_fmt] if analyte_target_fmt != "any" else "any"
 
-# --- Main: Model Info ---
+# ---------- Model Info ----------
 st.markdown("## 🧠 Prediction Model")
 st.info(
     f"This app uses a **Gradient Boosting Regressor** to predict the signal-to-noise ratio (S/N) "
@@ -139,10 +151,10 @@ st.info(
     f"- **Mean Squared Error (MSE):** {mse:.4f}"
 )
 
-# --- Main: S/N prediction ---
+# ---------- S/N prediction for selected parameters ----------
 with st.expander("### 🔍 Predicted S/N based on selected parameters", expanded=True):
     exact_match = df_combined[
-        (np.isclose(df_combined['protein.copy.nbr'], analyte, rtol=0.01)) &
+        (np.isclose(df_combined['analyte.copy.nbr'], analyte, rtol=0.01)) &
         (np.isclose(df_combined['capture'], capture, rtol=0.01)) &
         (np.isclose(df_combined['probe'], probe, rtol=0.01)) &
         (np.isclose(df_combined['Affinity_KD'], kd, rtol=0.01))
@@ -161,7 +173,7 @@ with st.expander("### 🔍 Predicted S/N based on selected parameters", expanded
     st.markdown("#### 🧭 Nearby parameter space")
     tolerance = 0.3
     nearby = df_combined[
-        (np.isclose(df_combined['protein.copy.nbr'], analyte, rtol=tolerance)) &
+        (np.isclose(df_combined['analyte.copy.nbr'], analyte, rtol=tolerance)) &
         (np.isclose(df_combined['capture'], capture, rtol=tolerance)) &
         (np.isclose(df_combined['probe'], probe, rtol=tolerance)) &
         (np.isclose(df_combined['Affinity_KD'], kd, rtol=tolerance))
@@ -172,30 +184,64 @@ with st.expander("### 🔍 Predicted S/N based on selected parameters", expanded
         nearby['S/N'] = 10 ** nearby['log10_SN1']
         st.dataframe(
             nearby[[
-                'analyte.copy.nbr_fmt', 'capture', 'probe', 'Affinity', 'log10_SN1', 'S/N', 'source'
-            ]].rename(columns={'analyte.copy.nbr_fmt': 'Analyte Copy Number'}).sort_values('log10_SN1', ascending=False)
+                'analyte.copy.nbr_fmt', 'capture', 'probe', 'Affinity_label', 'log10_SN1', 'S/N', 'source'
+            ]].rename(columns={'analyte.copy.nbr_fmt': 'Analyte Copy Number',
+                               'Affinity_label': 'Affinity (kD*)'}).sort_values('log10_SN1', ascending=False)
         )
     else:
         st.info("No nearby points found within tolerance.")
 
-# --- Main: 3D visualization ---
+# ---------- Optimization ----------
+with st.expander("### 📈 Optimized parameters for target S/N", expanded=False):
+    df_sn = df_combined.copy()
+    if selected_affinity != "any":
+        df_sn = df_sn[df_sn['Affinity_label'] == selected_affinity]
+    if analyte_target != "any":
+        df_sn = df_sn[np.isclose(df_sn['analyte.copy.nbr'], float(analyte_target), rtol=0.01)]
+
+    tolerance_sn = 0.1
+    matches = df_sn[np.isclose(df_sn['log10_SN1'], target_sn, atol=tolerance_sn)]
+
+    if not matches.empty:
+        matches = matches.copy()
+        matches['S/N'] = 10 ** matches['log10_SN1']
+        st.success(f"Parameter combinations close to target S/N ≈ {target_sn_linear:.2f}:")
+        st.dataframe(
+            matches[[
+                'analyte.copy.nbr_fmt', 'capture', 'probe', 'Affinity_label', 'log10_SN1', 'S/N', 'source'
+            ]].rename(columns={'analyte.copy.nbr_fmt': 'Analyte Copy Number',
+                               'Affinity_label': 'Affinity (kD*)'}).sort_values('log10_SN1')
+        )
+    else:
+        st.warning("No parameter sets found close to that target S/N. Try adjusting inputs or tolerance.")
+
+# ---------- 3D Visualization ----------
 with st.expander("### 🌐 3D Parameter Space Visualization", expanded=False):
     custom_colorscale = [
-       [0.0, '#FFDAB9'],
-       [0.5, '#FF4500'],
-       [1.0, '#800080']
+        [0.0, '#FFDAB9'],
+        [0.5, '#FF4500'],
+        [1.0, '#800080']
     ]
 
-    for aff in ['low (≤2 kD)', 'medium (13 kD)', 'high (≥59 kD)']:
+    for aff in AFFINITY_ORDERED:
         st.write(f"#### Affinity: {aff.capitalize()}")
-        df_sub = df_combined[df_combined['Affinity'] == aff].copy()
+        df_sub = df_combined[df_combined['Affinity_label'] == aff].copy()
 
-        df_sub = df_sub[df_sub['protein.copy.nbr'] > 0]
-        df_sub['log10_analyte_copy_nbr'] = np.log10(df_sub['protein.copy.nbr'])
+        # Guard against log10(0) and invalids
+        df_sub['log10_analyte_copy_nbr'] = np.where(
+            df_sub['analyte.copy.nbr'] > 0,
+            np.log10(df_sub['analyte.copy.nbr']),
+            np.nan
+        )
+        df_sub = df_sub.replace([np.inf, -np.inf], np.nan).dropna(subset=['log10_analyte_copy_nbr'])
+
+        if df_sub.empty:
+            st.warning(f"No valid analyte copy numbers for {aff}")
+            continue
 
         tick_vals = np.arange(
-            int(df_sub['log10_analyte_copy_nbr'].min()),
-            int(df_sub['log10_analyte_copy_nbr'].max()) + 1
+            int(np.floor(df_sub['log10_analyte_copy_nbr'].min())),
+            int(np.ceil(df_sub['log10_analyte_copy_nbr'].max())) + 1
         )
         tick_texts = [f"10<sup>{i}</sup>" for i in tick_vals]
 
@@ -210,7 +256,7 @@ with st.expander("### 🌐 3D Parameter Space Visualization", expanded=False):
             labels={
                 'log10_analyte_copy_nbr': 'Analyte Copy Number (log10)',
                 'capture': 'Capture reagent conc. (µg/ml)',
-                'probe': 'Probe concentration (µg/ml)',
+                'probe': 'Probe reagent concentration (µg/ml)',
                 'log10_SN1': 'log10(S/N)',
                 'analyte.copy.nbr_fmt': 'Analyte Copy Number'
             },
@@ -221,19 +267,8 @@ with st.expander("### 🌐 3D Parameter Space Visualization", expanded=False):
             scene=dict(
                 xaxis=dict(
                     title='Analyte Copy Number',
-                    tickvals=tick_vals,
+                    tickvals=tick_vals.tolist(),
                     ticktext=tick_texts
                 )
             ),
             coloraxis_colorbar=dict(
-                title=dict(text="log10(S/N)", font=dict(size=14)),
-                tickfont=dict(size=12),
-                x=1.05,
-                len=0.75,
-                thickness=15
-            ),
-            margin=dict(l=0, r=0, b=0, t=30),
-            showlegend=False
-        )
-
-        st.plotly_chart(fig)
