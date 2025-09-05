@@ -205,15 +205,18 @@ with st.expander("### 🌐 3D Parameter Space Visualization", expanded=False):
         st.write(f"#### Affinity: {aff.capitalize()}")
         df_sub = df_combined[df_combined['Affinity'] == aff].copy()
 
+        # Only keep positive analyte copy numbers
         df_sub = df_sub[df_sub['protein.copy.nbr'] > 0]
         df_sub['log10_analyte_copy_nbr'] = np.log10(df_sub['protein.copy.nbr'])
 
+        # Custom ticks for log10 scale
         tick_vals = np.arange(
             int(df_sub['log10_analyte_copy_nbr'].min()),
             int(df_sub['log10_analyte_copy_nbr'].max()) + 1
         )
         tick_texts = [f"10<sup>{i}</sup>" for i in tick_vals]
 
+        # Plotly 3D scatter
         fig = px.scatter_3d(
             df_sub,
             x='log10_analyte_copy_nbr',
@@ -247,7 +250,8 @@ with st.expander("### 🌐 3D Parameter Space Visualization", expanded=False):
                 len=0.75,
                 thickness=15
             ),
-            margin=dict(l=0, r=0, b=0, t=30)
+            margin=dict(l=0, r=0, b=0, t=30),
+            showlegend=False
         )
 
         st.plotly_chart(fig)
