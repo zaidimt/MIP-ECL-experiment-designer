@@ -10,7 +10,15 @@ import itertools
 # --- Load data ---
 @st.cache_data
 def load_data():
-    return pd.read_excel("App_data.xlsx")
+    df = pd.read_csv("App_data.csv")
+    
+    # Rename column for consistency
+    if "protein.copy.nbr" in df.columns:
+        df.rename(columns={"protein.copy.nbr": "analyte.copy.nbr"}, inplace=True)
+    
+    # Prettify analyte copy number for hover
+    df["analyte.copy.nbr_fmt"] = df["analyte.copy.nbr"].apply(lambda x: f"{int(x):,}" if x > 0 else "0")
+    return df
 
 df = load_data()
 
