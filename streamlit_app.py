@@ -121,8 +121,12 @@ with st.sidebar.expander("📈 Optimize parameters for target S/N", expanded=Fal
 st.markdown("## 🧠 Prediction Model")
 st.info(
     f"This app uses a **Gradient Boosting Regressor** to predict the signal-to-noise ratio (S/N) "
-    f"from analyte copy number, capture reagent concentration, probe concentration, and binding affinity.\n\n"
-    f"Model performance:\n"
+    f"from analyte copy number, capture reagent concentration, probe reagent concentration, and binding affinity.\n\n"
+    f"🔹 **Important:** Predictions are only made for parameter combinations that were **not measured experimentally**. "
+    f"Measured values always take precedence, and the app labels each data point as either:\n"
+    f"- **measured** (experimental data)\n"
+    f"- **predicted** (model estimate)\n\n"
+    f"Model performance on test data:\n"
     f"- **Coefficient of Determination (R²):** {r2:.3f}\n"
     f"- **Mean Squared Error (MSE):** {mse:.4f}"
 )
@@ -142,7 +146,7 @@ with st.expander("### 🔍 Predicted S/N based on selected parameters", expanded
         src = row['source']
         st.metric(label="log10(S/N)", value=f"{sn:.2f}")
         st.metric(label="S/N", value=f"{10**sn:.2f}")
-        st.caption(f"Source: {'predicted' if src == 'predicted' else 'measured'}")
+        st.caption(f"Source: {'Predicted by model' if src == 'predicted' else 'Measured experimentally'}")
     else:
         st.warning("No exact match found.")
 
