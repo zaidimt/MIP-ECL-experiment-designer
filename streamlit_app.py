@@ -22,7 +22,7 @@ AFFINITY_ORDERED = ['low (≤2 kD*)', 'medium (13 kD*)', 'high (≥59 kD*)']
 # ---------- Load data ----------
 @st.cache_data
 def load_data():
-    df = pd.read_csv("App_data.csv")
+    df = pd.read_excel("App_data.xlsx")
 
     # Rename once for consistency
     if "protein.copy.nbr" in df.columns:
