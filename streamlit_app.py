@@ -170,7 +170,7 @@ with st.expander("### 🔍 Predicted S/N based on selected parameters", expanded
     else:
         st.info("No nearby points found within tolerance.")
 
-# --- Main: Optimization section ---
+# --- Main: 3D visualization ---
 with st.expander("### 🌐 3D Parameter Space Visualization", expanded=False):
     custom_colorscale = [
        [0.0, '#FFDAB9'],
@@ -182,8 +182,7 @@ with st.expander("### 🌐 3D Parameter Space Visualization", expanded=False):
         st.write(f"#### Affinity: {aff.capitalize()}")
         df_sub = df_combined[df_combined['Affinity'] == aff].copy()
 
-        # Keep positive analyte copy numbers
-        df_sub = df_sub[df_sub['protein.copy.nbr'] > 0]
+        # Take log10 of analyte copy number (keep all points)
         df_sub['log10_analyte_copy_nbr'] = np.log10(df_sub['protein.copy.nbr'])
 
         # Custom ticks for log10 scale
@@ -193,7 +192,7 @@ with st.expander("### 🌐 3D Parameter Space Visualization", expanded=False):
         )
         tick_texts = [f"10<sup>{i}</sup>" for i in tick_vals]
 
-        # 3D scatter plot including all points
+        # 3D scatter plot including ALL points
         fig = px.scatter_3d(
             df_sub,
             x='log10_analyte_copy_nbr',
@@ -209,7 +208,7 @@ with st.expander("### 🌐 3D Parameter Space Visualization", expanded=False):
                 'log10_SN1': 'log10(S/N)',
                 'analyte.copy.nbr_fmt': 'Analyte Copy Number'
             },
-            hover_data=['analyte.copy.nbr_fmt']
+            hover_data=['analyte.copy.nbr_fmt', 'source']  # optional: still show measured/predicted in hover
         )
 
         fig.update_layout(
