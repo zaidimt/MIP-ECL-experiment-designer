@@ -16,9 +16,9 @@ df = load_data()
 
 # --- Map Affinity to numeric (ordered: Low -> Medium -> High) ---
 affinity_map = {
-    'low (≤2 kD)': 2,
-    'medium (13 kD)': 13,
-    'high (≥59 kD)': 59
+    'low (≤2 kD*)': 2,
+    'medium (13 kD*)': 13,
+    'high (≥59 kD*)': 59
 }
 df['Affinity_KD'] = df['Affinity'].map({'low': 2, 'medium': 13, 'high': 59})
 
@@ -53,7 +53,7 @@ param_grid = pd.DataFrame(
 )
 
 # --- Add Affinity label to param_grid for plotting ---
-inverse_affinity_map = {2: 'low (≤2 kD)', 13: 'medium (13 kD)', 59: 'high (≥59 kD)'}
+inverse_affinity_map = {2: 'low (≤2 kD*)', 13: 'medium (13 kD*)', 59: 'high (≥59 kD*)'}
 param_grid['Affinity'] = param_grid['Affinity_KD'].map(inverse_affinity_map)
 
 # --- Tag existing combos ---
@@ -82,8 +82,8 @@ st.markdown(
     the expected signal-to-noise ratio (S/N) from four key parameters:
     - Analyte copy number  
     - Capture reagent concentration  
-    - Probe concentration  
-    - Binding affinity (expressed as equilibrium dissociation constant, kD)  
+    - Probe reagent concentration  
+    - Binding affinity (expressed as equilibrium dissociation constant, kD*)  
 
     Use the panels on the left to predict outcomes for specific conditions or 
     explore optimized parameter combinations.  
@@ -100,16 +100,16 @@ with st.sidebar.expander("🎯 Predict S/N from known parameters", expanded=True
     analyte = analyte_format_map[analyte_fmt]
 
     capture = st.select_slider("Capture reagent conc. (µg/ml)", options=sorted(df_combined['capture'].unique()))
-    probe = st.select_slider("Probe concentration (µg/ml)", options=sorted(df_combined['probe'].unique()))
-    affinity_ordered = ['low (≤2 kD)', 'medium (13 kD)', 'high (≥59 kD)']
-    affinity_label = st.select_slider("Affinity", options=affinity_ordered, value='medium (13 kD)')
+    probe = st.select_slider("Probe reagent concentration (µg/ml)", options=sorted(df_combined['probe'].unique()))
+    affinity_ordered = ['low (≤2 kD*)', 'medium (13 kD*)', 'high (≥59 kD*)']
+    affinity_label = st.select_slider("Affinity", options=affinity_ordered, value='medium (13 kD*)')
     kd = affinity_map[affinity_label]
 
 with st.sidebar.expander("📈 Optimize parameters for target S/N", expanded=False):
     target_sn_linear = st.number_input("Target S/N value", value=10.0, step=1.0)
     target_sn = np.log10(target_sn_linear)
 
-    affinity_levels = ['low (≤2 kD)', 'medium (13 kD)', 'high (≥59 kD)']
+    affinity_levels = ['low (≤2 kD*)', 'medium (13 kD*)', 'high (≥59 kD*)']
     selected_affinity = st.selectbox("Affinity", options=["any"] + affinity_levels)
 
     all_analytes = sorted(df_combined['protein.copy.nbr'].unique())
@@ -201,7 +201,7 @@ with st.expander("### 🌐 3D Parameter Space Visualization", expanded=False):
        [1.0, '#800080']
     ]
 
-    for aff in ['low (≤2 kD)', 'medium (13 kD)', 'high (≥59 kD)']:
+    for aff in ['low (≤2 kD*)', 'medium (13 kD*)', 'high (≥59 kD*)']:
         st.write(f"#### Affinity: {aff.capitalize()}")
         df_sub = df_combined[df_combined['Affinity'] == aff].copy()
 
@@ -221,15 +221,18 @@ with st.expander("### 🌐 3D Parameter Space Visualization", expanded=False):
             z='probe',
             color='log10_SN1',
             opacity=0.7,
+            symbol='source',   # Different markers for measured vs predicted
+            symbol_map={'measured': 'circle', 'predicted': 'diamond'},
             color_continuous_scale=custom_colorscale,
             labels={
                 'log10_analyte_copy_nbr': 'Analyte Copy Number (log10)',
                 'capture': 'Capture reagent conc. (µg/ml)',
-                'probe': 'Probe concentration (µg/ml)',
+                'probe': 'Probe reagent concentration (µg/ml)',
                 'log10_SN1': 'log10(S/N)',
-                'analyte.copy.nbr_fmt': 'Analyte Copy Number'
+                'analyte.copy.nbr_fmt': 'Analyte Copy Number',
+                'source': 'Data Source'
             },
-            hover_data=['analyte.copy.nbr_fmt']
+            hover_data=['analyte.copy.nbr_fmt', 'source']
         )
 
         fig.update_layout(
@@ -247,8 +250,7 @@ with st.expander("### 🌐 3D Parameter Space Visualization", expanded=False):
                 len=0.75,
                 thickness=15
             ),
-            margin=dict(l=0, r=0, b=0, t=30),
-            showlegend=False
+            margin=dict(l=0, r=0, b=0, t=30)
         )
 
         st.plotly_chart(fig)
