@@ -171,29 +171,6 @@ with st.expander("### 🔍 Predicted S/N based on selected parameters", expanded
         st.info("No nearby points found within tolerance.")
 
 # --- Main: Optimization section ---
-with st.expander("### 📈 Optimized parameters for target S/N", expanded=False):
-    df_sn = df_combined.copy()
-    if selected_affinity != "any":
-        df_sn = df_sn[df_sn['Affinity'] == selected_affinity]
-    if analyte_target != "any":
-        df_sn = df_sn[np.isclose(df_sn['protein.copy.nbr'], float(analyte_target), rtol=0.01)]
-
-    tolerance_sn = 0.1
-    matches = df_sn[np.isclose(df_sn['log10_SN1'], target_sn, atol=tolerance_sn)]
-
-    if not matches.empty:
-        matches = matches.copy()
-        matches['S/N'] = 10 ** matches['log10_SN1']
-        st.success(f"Parameter combinations close to target S/N ≈ {target_sn_linear:.2f}:")
-        st.dataframe(
-            matches[[
-                'analyte.copy.nbr_fmt', 'capture', 'probe', 'Affinity', 'log10_SN1', 'S/N', 'source'
-            ]].rename(columns={'analyte.copy.nbr_fmt': 'Analyte Copy Number'}).sort_values('log10_SN1')
-        )
-    else:
-        st.warning("No parameter sets found close to that target S/N. Try adjusting inputs or tolerance.")
-
-# --- Main: 3D visualization ---
 with st.expander("### 🌐 3D Parameter Space Visualization", expanded=False):
     custom_colorscale = [
        [0.0, '#FFDAB9'],
@@ -205,7 +182,7 @@ with st.expander("### 🌐 3D Parameter Space Visualization", expanded=False):
         st.write(f"#### Affinity: {aff.capitalize()}")
         df_sub = df_combined[df_combined['Affinity'] == aff].copy()
 
-        # Only keep positive analyte copy numbers
+        # Keep positive analyte copy numbers
         df_sub = df_sub[df_sub['protein.copy.nbr'] > 0]
         df_sub['log10_analyte_copy_nbr'] = np.log10(df_sub['protein.copy.nbr'])
 
@@ -216,7 +193,7 @@ with st.expander("### 🌐 3D Parameter Space Visualization", expanded=False):
         )
         tick_texts = [f"10<sup>{i}</sup>" for i in tick_vals]
 
-        # Plotly 3D scatter
+        # 3D scatter plot including all points
         fig = px.scatter_3d(
             df_sub,
             x='log10_analyte_copy_nbr',
