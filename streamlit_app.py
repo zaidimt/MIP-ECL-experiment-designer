@@ -272,3 +272,14 @@ with st.expander("### 🌐 3D Parameter Space Visualization", expanded=False):
                 )
             ),
             coloraxis_colorbar=dict(
+                title=dict(text="log10(S/N)", font=dict(size=14)),
+                tickfont=dict(size=12),
+                x=1.05,
+                len=0.75,
+                thickness=15
+            ),
+            margin=dict(l=0, r=0, b=0, t=30),
+            showlegend=False
+        )
+
+        st.plotly_chart(fig)
