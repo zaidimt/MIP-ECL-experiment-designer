@@ -178,21 +178,19 @@ with st.expander("### 🌐 3D Parameter Space Visualization", expanded=False):
        [1.0, '#800080']
     ]
 
-    for aff in ['low (≤2 kD*)', 'medium (13 kD*)', 'high (≥59 kD*)']:
+    for aff in ['low (≤2 kD)', 'medium (13 kD)', 'high (≥59 kD)']:
         st.write(f"#### Affinity: {aff.capitalize()}")
         df_sub = df_combined[df_combined['Affinity'] == aff].copy()
 
-        # Take log10 of analyte copy number (keep all points)
+        df_sub = df_sub[df_sub['protein.copy.nbr'] > 0]
         df_sub['log10_analyte_copy_nbr'] = np.log10(df_sub['protein.copy.nbr'])
 
-        # Custom ticks for log10 scale
         tick_vals = np.arange(
             int(df_sub['log10_analyte_copy_nbr'].min()),
             int(df_sub['log10_analyte_copy_nbr'].max()) + 1
         )
         tick_texts = [f"10<sup>{i}</sup>" for i in tick_vals]
 
-        # 3D scatter plot including ALL points
         fig = px.scatter_3d(
             df_sub,
             x='log10_analyte_copy_nbr',
@@ -204,11 +202,11 @@ with st.expander("### 🌐 3D Parameter Space Visualization", expanded=False):
             labels={
                 'log10_analyte_copy_nbr': 'Analyte Copy Number (log10)',
                 'capture': 'Capture reagent conc. (µg/ml)',
-                'probe': 'Probe reagent concentration (µg/ml)',
+                'probe': 'Probe concentration (µg/ml)',
                 'log10_SN1': 'log10(S/N)',
                 'analyte.copy.nbr_fmt': 'Analyte Copy Number'
             },
-            hover_data=['analyte.copy.nbr_fmt', 'source']  # optional: still show measured/predicted in hover
+            hover_data=['analyte.copy.nbr_fmt']
         )
 
         fig.update_layout(
