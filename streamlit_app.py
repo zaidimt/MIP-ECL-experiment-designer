@@ -14,10 +14,10 @@ AFF_LABELED = {
     'high':  'high (≥59 kD*)'
 }
 AFF_KD_FROM_SIMPLE = {'low': 2, 'medium': 13, 'high': 59}
-AFF_KD_FROM_LABELED = {'low (≤2 kD*)': 2, 'medium (13 kD*)': 13, 'high (≥59 kD*)': 59}
-KD_TO_LABELED = {2: 'low (≤2 kD*)', 13: 'medium (13 kD*)', 59: 'high (≥59 kD*)'}
+AFF_KD_FROM_LABELED = {'low (kD* ≤ 2)': 2, 'medium (kD*= 13)': 13, 'high (kD* ≥ 59)': 59}
+KD_TO_LABELED = {2: 'low (≤2 kD*)', 13: 'medium (kD* = 13)', 59: 'high (kD* ≥ 59)'}
 
-AFFINITY_ORDERED = ['low (≤2 kD*)', 'medium (13 kD*)', 'high (≥59 kD*)']
+AFFINITY_ORDERED = ['low (kD* ≤ 2)', 'medium (kD* = 13)', 'high (kD* ≥ 59)']
 
 # ---------- Load data ----------
 @st.cache_data
