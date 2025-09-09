@@ -198,7 +198,7 @@ with st.expander("### 🌐 3D Parameter Space Visualization", expanded=False):
             coloraxis_colorbar=dict(
                 title="S/N",
                 tickvals=sn_ticks.tolist(),
-                ticktext=[f"{10**i:.0f}" for i in sn_ticks]
+                ticktext=[f"{10**int(i):.0f}" for i in sn_ticks]
             ),
             margin=dict(l=0, r=0, b=0, t=30),
             showlegend=False
