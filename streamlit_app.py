@@ -189,10 +189,12 @@ with st.expander("### 🔍 Predicted S/N based on selected parameters", expanded
     if not nearby.empty:
         nearby = nearby.copy()
         nearby['S/N'] = 10 ** nearby['log10_SN1']
+        # format analyte in scientific notation
+        nearby['analyte.copy.nbr_sci'] = nearby['analyte.copy.nbr'].apply(lambda x: f"{x:.2e}")
         st.dataframe(
             nearby[[
-                'analyte.copy.nbr_fmt', 'capture', 'probe', 'Affinity_label', 'log10_SN1', 'S/N', 'source'
-            ]].rename(columns={'analyte.copy.nbr_fmt': 'Analyte Copy Number',
+                'analyte.copy.nbr_sci', 'capture', 'probe', 'Affinity_label', 'log10_SN1', 'S/N', 'source'
+            ]].rename(columns={'analyte.copy.nbr_sci': 'Analyte Copy Number',
                                'Affinity_label': 'Affinity (kD*)'}).sort_values('log10_SN1', ascending=False)
         )
     else:
@@ -212,11 +214,13 @@ with st.expander("### 📈 Optimized parameters for target S/N", expanded=False)
     if not matches.empty:
         matches = matches.copy()
         matches['S/N'] = 10 ** matches['log10_SN1']
+        # format analyte in scientific notation
+        matches['analyte.copy.nbr_sci'] = matches['analyte.copy.nbr'].apply(lambda x: f"{x:.2e}")
         st.success(f"Parameter combinations close to target S/N ≈ {target_sn_linear:.2f}:")
         st.dataframe(
             matches[[
-                'analyte.copy.nbr_fmt', 'capture', 'probe', 'Affinity_label', 'log10_SN1', 'S/N', 'source'
-            ]].rename(columns={'analyte.copy.nbr_fmt': 'Analyte Copy Number',
+                'analyte.copy.nbr_sci', 'capture', 'probe', 'Affinity_label', 'log10_SN1', 'S/N', 'source'
+            ]].rename(columns={'analyte.copy.nbr_sci': 'Analyte Copy Number',
                                'Affinity_label': 'Affinity (kD*)'}).sort_values('log10_SN1')
         )
     else:
@@ -240,6 +244,8 @@ with st.expander("### 🌐 3D Parameter Space Visualization", expanded=False):
             np.log10(df_sub['analyte.copy.nbr']),
             np.nan
         )
+        # scientific notation for hover
+        df_sub['analyte.copy.nbr_sci'] = df_sub['analyte.copy.nbr'].apply(lambda x: f"{x:.2e}")
         df_sub = df_sub.replace([np.inf, -np.inf], np.nan).dropna(subset=['log10_analyte_copy_nbr'])
 
         if df_sub.empty:
@@ -265,9 +271,9 @@ with st.expander("### 🌐 3D Parameter Space Visualization", expanded=False):
                 'capture': 'Capture reagent conc. (µg/ml)',
                 'probe': 'Probe reagent concentration (µg/ml)',
                 'log10_SN1': 'log10(S/N)',
-                'analyte.copy.nbr_fmt': 'Analyte Copy Number'
+                'analyte.copy.nbr_sci': 'Analyte Copy Number'
             },
-            hover_data=['analyte.copy.nbr_fmt']
+            hover_data=['analyte.copy.nbr_sci']
         )
 
         fig.update_layout(
