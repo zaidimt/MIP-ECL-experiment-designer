@@ -9,9 +9,9 @@ import itertools
 
 # ---------- Constants ----------
 AFF_LABELED = {
-    'low':   'low (≤2 kD*)',
-    'medium':'medium (13 kD*)',
-    'high':  'high (≥59 kD*)'
+    'low':   'low (kD* ≤ 2)',
+    'medium':'medium (kD* = 13)',
+    'high':  'high (kD* ≥ 59)'
 }
 AFF_KD_FROM_SIMPLE = {'low': 2, 'medium': 13, 'high': 59}
 AFF_KD_FROM_LABELED = {'low (kD* ≤ 2)': 2, 'medium (kD*= 13)': 13, 'high (kD* ≥ 59)': 59}
@@ -57,6 +57,12 @@ y_pred = model.predict(X_test)
 mse = mean_squared_error(y_test, y_pred)
 r2 = r2_score(y_test, y_pred)
 
+# ---------- Ensure measured data has numeric Affinity_KD ----------
+df_measured = df.copy()
+df_measured['Affinity_KD'] = df_measured['Affinity'].map(AFF_KD_FROM_SIMPLE)
+df_measured['Affinity_label'] = df_measured['Affinity'].map(AFF_LABELED)
+df_measured['source'] = 'measured'
+
 # ---------- Generate full parameter grid for prediction ----------
 analyte_vals = df['analyte.copy.nbr'].unique()
 capture_vals = df['capture'].unique()
@@ -70,29 +76,30 @@ param_grid = pd.DataFrame(
 # Add canonical label to the grid
 param_grid['Affinity_label'] = param_grid['Affinity_KD'].map(KD_TO_LABELED)
 
-# ---------- Mark measured vs predicted, predict missing ----------
-df['key'] = df[features].astype(str).agg('-'.join, axis=1)
-param_grid['key'] = param_grid[features].astype(str).agg('-'.join, axis=1)
+# ---------- Function to check if a row is already measured ----------
+def is_missing(row, df_measured):
+    return not ((np.isclose(df_measured['analyte.copy.nbr'], row['analyte.copy.nbr'])) &
+                (np.isclose(df_measured['capture'], row['capture'])) &
+                (np.isclose(df_measured['probe'], row['probe'])) &
+                (df_measured['Affinity_KD'] == row['Affinity_KD'])).any()
 
-missing_combos = param_grid[~param_grid['key'].isin(df['key'])].copy()
+# ---------- Select missing rows ----------
+missing_combos = param_grid[param_grid.apply(lambda r: is_missing(r, df_measured), axis=1)].copy()
+
+# ---------- Predict log10_SN1 for missing combos ----------
 missing_combos['log10_SN1'] = model.predict(missing_combos[features])
 missing_combos['source'] = 'predicted'
 
-# measured rows already have Affinity_label; ensure column order/consistency
-df_measured = df.copy()
-df_measured['source'] = 'measured'
-# Guarantee the same columns exist
-for col in ['Affinity_label']:
-    if col not in df_measured.columns:
-        df_measured[col] = df_measured['Affinity_KD'].map(KD_TO_LABELED)
+# ---------- Format analyte copy number for display ----------
+missing_combos['analyte.copy.nbr_fmt'] = missing_combos['analyte.copy.nbr'].apply(
+    lambda x: f"{int(x):,}" if pd.notna(x) and x > 0 else "0"
+)
+df_measured['analyte.copy.nbr_fmt'] = df_measured['analyte.copy.nbr'].apply(
+    lambda x: f"{int(x):,}" if pd.notna(x) and x > 0 else "0"
+)
 
+# ---------- Combine measured + predicted ----------
 df_combined = pd.concat([df_measured, missing_combos], ignore_index=True)
-
-# Prettified analyte for combined (if not already)
-if 'analyte.copy.nbr_fmt' not in df_combined.columns:
-    df_combined['analyte.copy.nbr_fmt'] = df_combined['analyte.copy.nbr'].apply(
-        lambda x: f"{int(x):,}" if pd.notna(x) and x > 0 else "0"
-    )
 
 # ---------- App layout ----------
 st.set_page_config(page_title="MIP-ECL Experiment Designer", layout="wide")
@@ -123,7 +130,7 @@ with st.sidebar.expander("🎯 Predict S/N from known parameters", expanded=True
 
     capture = st.select_slider("Capture reagent conc. (µg/ml)", options=sorted(df_combined['capture'].unique()))
     probe = st.select_slider("Probe reagent concentration (µg/ml)", options=sorted(df_combined['probe'].unique()))
-    affinity_label = st.select_slider("Affinity (kD*)", options=AFFINITY_ORDERED, value='medium (13 kD*)')
+    affinity_label = st.select_slider("Affinity (kD*)", options=AFFINITY_ORDERED, value='medium (kD* = 13)')
     kd = AFF_KD_FROM_LABELED[affinity_label]
 
 with st.sidebar.expander("📈 Optimize parameters for target S/N", expanded=False):
