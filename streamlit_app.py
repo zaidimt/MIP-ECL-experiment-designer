@@ -46,7 +46,7 @@ df = load_data()
 
 # ---------- Define features & target ----------
 features = ['analyte.copy.nbr', 'capture', 'probe', 'Affinity_KD']
-y = df['log10_SN1']
+y = df['log10SN']
 X = df[features]
 
 # ---------- Train/test split & model ----------
@@ -86,8 +86,8 @@ def is_missing(row, df_measured):
 # ---------- Select missing rows ----------
 missing_combos = param_grid[param_grid.apply(lambda r: is_missing(r, df_measured), axis=1)].copy()
 
-# ---------- Predict log10_SN1 for missing combos ----------
-missing_combos['log10_SN1'] = model.predict(missing_combos[features])
+# ---------- Predict log10SN for missing combos ----------
+missing_combos['log10SN'] = model.predict(missing_combos[features])
 missing_combos['source'] = 'predicted'
 
 # ---------- Format analyte copy number for display ----------
@@ -169,7 +169,7 @@ with st.expander("### 🔍 Predicted S/N based on selected parameters", expanded
 
     if not exact_match.empty:
         row = exact_match.iloc[0]
-        sn = row['log10_SN1']
+        sn = row['log10SN']
         src = row['source']
         st.metric(label="log10(S/N)", value=f"{sn:.2f}")
         st.metric(label="S/N", value=f"{10**sn:.2f}")
@@ -188,14 +188,14 @@ with st.expander("### 🔍 Predicted S/N based on selected parameters", expanded
 
     if not nearby.empty:
         nearby = nearby.copy()
-        nearby['S/N'] = 10 ** nearby['log10_SN1']
+        nearby['S/N'] = 10 ** nearby['log10SN']
         # format analyte in scientific notation
         nearby['analyte.copy.nbr_sci'] = nearby['analyte.copy.nbr'].apply(lambda x: f"{x:.2e}")
         st.dataframe(
             nearby[[
-                'analyte.copy.nbr_sci', 'capture', 'probe', 'Affinity_label', 'log10_SN1', 'S/N', 'source'
+                'analyte.copy.nbr_sci', 'capture', 'probe', 'Affinity_label', 'log10SN', 'S/N', 'source'
             ]].rename(columns={'analyte.copy.nbr_sci': 'Analyte Copy Number',
-                               'Affinity_label': 'Affinity (kD*)'}).sort_values('log10_SN1', ascending=False)
+                               'Affinity_label': 'Affinity (kD*)'}).sort_values('log10SN', ascending=False)
         )
     else:
         st.info("No nearby points found within tolerance.")
@@ -209,19 +209,19 @@ with st.expander("### 📈 Optimized parameters for target S/N", expanded=False)
         df_sn = df_sn[np.isclose(df_sn['analyte.copy.nbr'], float(analyte_target), rtol=0.01)]
 
     tolerance_sn = 0.1
-    matches = df_sn[np.isclose(df_sn['log10_SN1'], target_sn, atol=tolerance_sn)]
+    matches = df_sn[np.isclose(df_sn['log10SN'], target_sn, atol=tolerance_sn)]
 
     if not matches.empty:
         matches = matches.copy()
-        matches['S/N'] = 10 ** matches['log10_SN1']
+        matches['S/N'] = 10 ** matches['log10SN']
         # format analyte in scientific notation
         matches['analyte.copy.nbr_sci'] = matches['analyte.copy.nbr'].apply(lambda x: f"{x:.2e}")
         st.success(f"Parameter combinations close to target S/N ≈ {target_sn_linear:.2f}:")
         st.dataframe(
             matches[[
-                'analyte.copy.nbr_sci', 'capture', 'probe', 'Affinity_label', 'log10_SN1', 'S/N', 'source'
+                'analyte.copy.nbr_sci', 'capture', 'probe', 'Affinity_label', 'log10SN', 'S/N', 'source'
             ]].rename(columns={'analyte.copy.nbr_sci': 'Analyte Copy Number',
-                               'Affinity_label': 'Affinity (kD*)'}).sort_values('log10_SN1')
+                               'Affinity_label': 'Affinity (kD*)'}).sort_values('log10SN')
         )
     else:
         st.warning("No parameter sets found close to that target S/N. Try adjusting inputs or tolerance.")
@@ -263,14 +263,14 @@ with st.expander("### 🌐 3D Parameter Space Visualization", expanded=False):
             x='log10_analyte_copy_nbr',
             y='capture',
             z='probe',
-            color='log10_SN1',
+            color='log10SN',
             opacity=0.7,
             color_continuous_scale=custom_colorscale,
             labels={
                 'log10_analyte_copy_nbr': 'Analyte Copy Number (log10)',
                 'capture': 'Capture reagent conc. (µg/ml)',
                 'probe': 'Probe reagent concentration (µg/ml)',
-                'log10_SN1': 'log10(S/N)',
+                'log10SN': 'log10(S/N)',
                 'analyte.copy.nbr_sci': 'Analyte Copy Number'
             },
             hover_data=['analyte.copy.nbr_sci']
