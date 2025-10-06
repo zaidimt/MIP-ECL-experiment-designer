@@ -9,15 +9,15 @@ import itertools
 
 # ---------- Constants ----------
 AFF_LABELED = {
-    'low':   '(kD* ≥ 53.6)',
-    'medium':'(kD* = 13)',
-    'high':  '(kD* ≤ 1.3)'
+    'low':   'low (kD* ≥ 53.6)',
+    'medium':'medium (kD* = 13)',
+    'high':  'high (kD* ≤ 1.3)'
 }
 AFF_KD_FROM_SIMPLE = {'low': 53.6, 'medium': 13, 'high': 1.3}
-AFF_KD_FROM_LABELED = {'(kD* ≥ 53.6)': 53.6, '(kD* = 13)': 13, '(kD* ≤ 1.3)': 1.3}
-KD_TO_LABELED = {53.6: '(kD* ≥ 53.6)', 13: 'medium (kD* = 13)', 1.3: '(kD* ≤ 1.3)'}
+AFF_KD_FROM_LABELED = {'low (kD* ≥ 53.6)': 53.6, 'medium (kD* = 13)': 13, 'high (kD* ≤ 1.3)': 1.3}
+KD_TO_LABELED = {59: 'low (kD* ≥ 53.6)', 13: 'medium (kD* = 13)', 1.3: 'high (kD* ≤ 1.3)'}
 
-AFFINITY_ORDERED = ['(kD* ≤ 1.3)', '(kD* = 13)', '(kD* ≥ 53.6))']
+AFFINITY_ORDERED = ['low (kD* ≥ 53.6)', 'medium (kD* = 13)', 'high (kD* ≤ 1.3)']
 
 # ---------- Load data ----------
 @st.cache_data
