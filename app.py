@@ -1,3 +1,7 @@
+import os
+os.environ["STREAMLIT_GATHER_USAGE_STATS"] = "false"
+os.environ["STREAMLIT_CONFIG_DIR"] = "/tmp/.streamlit"
+
 import streamlit as st
 import pandas as pd
 import numpy as np
